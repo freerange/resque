@@ -125,13 +125,17 @@ module Resque
             rand # Reseeding
             procline "Forked #{@child} at #{Time.now.to_i}"
             Process.wait
+            procline "Done waiting for #{@child} at #{Time.now.to_i}"
           else
             procline "Processing #{job.queue} since #{Time.now.to_i}"
             perform(job, &block)
+            procline "Processing finished #{job.queue} since #{Time.now.to_i}"
             exit! unless @cant_fork
           end
 
+          log "Invoking done_waiting"
           done_working
+          log "done_waiting done."
           @child = nil
         else
           break if interval.zero?
