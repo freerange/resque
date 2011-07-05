@@ -137,5 +137,23 @@ context "on GET to /check_process_time providing a custom max_process_time" do
   end
 end
 
+context "on GET to /check_process_time with an idle worker" do
+  setup do
+    @worker = Resque::Worker.new(:jobs)
+    @worker.register_worker
+    get "/check_process_time"
+  end
+
+  teardown do
+    @worker.unregister_worker
+  end
+
+  should_respond_with_success
+
+  test "should show message that the queue worker is not ok" do
+    assert_equal 'No worker has been running for more than 600 seconds', last_response.body
+  end
+end
+
 
 

@@ -226,10 +226,11 @@ module Resque
 
     get "/check_process_time" do
       max_process_time = (params[:max_process_time] || 600).to_i #Max process time in seconds
-
       worker_stalled = Resque.workers.detect do |worker|
-        run_at = Time.parse(worker.job['run_at'])
-        ((Time.now - max_process_time) > run_at)
+        if worker.working?
+          run_at = Time.parse(worker.job['run_at'])
+          ((Time.now - max_process_time) > run_at)
+        end
       end
 
       if worker_stalled
