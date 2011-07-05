@@ -1,6 +1,6 @@
 require 'test_helper'
 require 'resque/server/test_helper'
- 
+
 # Root path test
 context "on GET to /" do
   setup { get "/" }
@@ -78,3 +78,64 @@ context "on GET to /check_queue_sizes with a lower max size" do
     assert_equal 'Queue size has grown larger than max queue size.', last_response.body
   end
 end
+
+context "on GET to /check_process_time" do
+  setup do
+    get "/check_process_time"
+  end
+
+  should_respond_with_success
+
+  test "should show message that the queue worker is ok" do
+    assert_equal 'No worker has been running for more than 600 seconds', last_response.body
+  end
+end
+
+context "on GET to /check_process_time when a worker has been running for more than 10 minutes" do
+  setup do
+    @worker = Resque::Worker.new(:jobs)
+    Resque::Job.create(:jobs, SomeJob, 20, '/tmp')
+
+    @worker.work(0) do |job|
+      data = @worker.encode \
+        :queue   => job.queue,
+        :run_at  => (Time.now - 601).to_s,
+        :payload => job.payload
+      @worker.redis.set("worker:#{@worker}", data)
+
+      get "/check_process_time"
+    end
+  end
+
+  should_respond_with_success
+
+  test "should show message that the queue worker is not ok" do
+    assert_equal 'A worker has been running for more than max_process_time', last_response.body
+  end
+end
+
+context "on GET to /check_process_time providing a custom max_process_time" do
+  setup do
+    @worker = Resque::Worker.new(:jobs)
+    Resque::Job.create(:jobs, SomeJob, 20, '/tmp')
+
+    @worker.work(0) do |job|
+      data = @worker.encode \
+        :queue   => job.queue,
+        :run_at  => (Time.now - 601).to_s,
+        :payload => job.payload
+      @worker.redis.set("worker:#{@worker}", data)
+
+      get "/check_process_time?max_process_time=900"
+    end
+  end
+
+  should_respond_with_success
+
+  test "should show message that the queue worker is not ok" do
+    assert_equal 'No worker has been running for more than 900 seconds', last_response.body
+  end
+end
+
+
+

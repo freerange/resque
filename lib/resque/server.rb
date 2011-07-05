@@ -212,14 +212,30 @@ module Resque
 
     get "/check_queue_sizes" do
       max_queue_size = (params[:max_queue_size] || 100).to_i
-      ok = true
-      Resque.queues.each do | queue |
-        ok = false if resque.size(queue) > max_queue_size
+
+      oversized_queue = Resque.queues.detect do |queue|
+        resque.size(queue) > max_queue_size
       end
-      if ok
-        "Queue sizes are ok."
-      else
+
+      if oversized_queue
         "Queue size has grown larger than max queue size."
+      else
+        "Queue sizes are ok."
+      end
+    end
+
+    get "/check_process_time" do
+      max_process_time = (params[:max_process_time] || 600).to_i #Max process time in seconds
+
+      worker_stalled = Resque.workers.detect do |worker|
+        run_at = Time.parse(worker.job['run_at'])
+        ((Time.now - max_process_time) > run_at)
+      end
+
+      if worker_stalled
+        "A worker has been running for more than max_process_time"
+      else
+        "No worker has been running for more than #{max_process_time} seconds"
       end
     end
 
